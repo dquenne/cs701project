@@ -20,12 +20,10 @@ while (midi_place != -1):
 		char = page_str[name_start]
 		name_start -= 1;
 	new_song = page_str[name_start+2: midi_place+4]
-	print(new_song)
+	# print(new_song)
 	song_list += [new_song]
 print (song_list)
 
 for i in range (len(song_list)-1):
 	song=song_list[i]
-	print (URL + song)
-	print(song)
 	urllib.urlretrieve (URL + song, song)

@@ -7,7 +7,7 @@ import math
 class Note:
 
     # initialize
-    def __init__(self, midi_message):
+    def __init__(self, midi_message, ppq):
         data = midi_message.split(", ")
         self.track = int(data[0])
         self.time = int(data[1])
@@ -15,23 +15,28 @@ class Note:
         self.pitch = int(data[4])
         self.duration = 4 # 4 16th notes
         self.instrument = ""
+        # self.num = int(time_signature[3])
+        # self.denom = int(time_signature[4])
+        self.clocksperbeat = ppq#int(time_signature[5])
+        self.clockspermeasure = ppq*4#self.num*self.clocksperbeat
 
 
-    def measure(self, num, denom, clocksperbeat):
-        clockspermeasure = num*clocksperbeat
-        return math.floor(self.time/clockspermeasure)
+    def measure(self):
+        return math.floor(self.time/self.clockspermeasure)
 
-    def timeInMeasure(self, num, denom, clocksperbeat):
-        clockspermeasure = num*clocksperbeat
-        return round((self.time % clockspermeasure)/clocksperbeat*4)
+    def timeInMeasure(self):
+        return round((self.time % self.clockspermeasure)/self.clocksperbeat*4)
 
 
-    def getTrainingDataNote(self, num, denom, clocksperbeat):
+    def getTrainingDataNote(self):
         # output = ("@" + str(self.timeInMeasure(num, denom, clocksperbeat)) + "[" +
         # '(%03d)' % self.pitch
         # + "]"
-        return '{inst}@{time:02d}[({pitch:03d}):{duration:02d}]'.format(
+        return '{inst}@{pitch:03d}'.format(
             inst=self.instrument,
-            time=self.timeInMeasure(num, denom, clocksperbeat),
-            pitch=self.pitch,
-            duration=self.duration)
+            pitch=self.pitch)
+        # return '{inst}@{time:02d}[({pitch:03d}):{duration:02d}]'.format(
+        #     inst=self.instrument,
+        #     time=self.timeInMeasure(),
+        #     pitch=self.pitch,
+        #     duration=self.duration)

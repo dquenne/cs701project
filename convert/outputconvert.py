@@ -9,8 +9,11 @@ import musicdata
 import sys
 import heapq
 
-
-QUARTER_SUBDIVISION = 12
+DEFAULT_QUARTER_SUBDIV = 12
+# 2: 8th-note precision
+# 6: 8th-note and quarter-note triplet precision
+# 12: 8th-note triplet and 16th-note precision
+quarter_sub = DEFAULT_QUARTER_SUBDIV
 
 DEFAULT_PPQ = 384
 DEFAULT_TRACKS = {'p':2, 'b':3, 'd':4}
@@ -40,31 +43,29 @@ output = {}
 max_measure = 0
 
 
-def max(a, b):
-    if a > b:
-        return a
-    else:
-        return b
+# get MIDI clock time from measure and submeasure
+def getClockTime(measure, submeasure):
+    return int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub))
 
-def getClockTime(measure, beat):
-    return int(DEFAULT_PPQ*(measure*4+beat/QUARTER_SUBDIVISION))
+# get MIDI clock time from measure and submeasure plus duration
+def getOffClockTime(measure, submeasure, duration):
+    return int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub))
 
-def getOffClockTime(measure, beat, duration):
-    return int(DEFAULT_PPQ*(measure*4+(beat+duration)/QUARTER_SUBDIVISION))
-
-def getCSVNoteOn(measure, beat, pitch, instrument, velocity, duration):
+# get actual MIDI/CSV message for a note_on
+def getCSVNoteOn(measure, submeasure, pitch, instrument, velocity):
     return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, {velocity}\n'.format(
         track=DEFAULT_TRACKS[instrument],
-        time=int(DEFAULT_PPQ*(measure*4+beat/QUARTER_SUBDIVISION)),
+        time=int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub)),
         channel=DEFAULT_CHANNELS[instrument],
         pitch=pitch,
         velocity=velocity
     )
 
-def getCSVNoteOff(measure, beat, pitch, instrument, duration):
+# get actual MIDI/CSV message for a note_off
+def getCSVNoteOff(measure, submeasure, pitch, instrument, duration):
     return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, 0\n'.format(
         track=DEFAULT_TRACKS[instrument],
-        time=int(DEFAULT_PPQ*(measure*4+(beat+duration)/QUARTER_SUBDIVISION)),
+        time=int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub)),
         channel=DEFAULT_CHANNELS[instrument],
         pitch=pitch
     )
@@ -86,41 +87,50 @@ if len(sys.argv) > 2:
 else:
     outputfile = open('finaloutput.csv', 'w')
 
-outnotes = {'p':[], 'b':[], 'd':[]}
+
+# heap used to store note_off messages to be written (sorted by midi clock time)
 noteoffs = []
 
+# read header, scan for tempo
 header = inputfile.readline()
+tempo = int(header.split(" ")[3])
 
-measure_ct = 0
+measure_ct = 0 # current measure
+last_time = 0 # time to be used for End_track message (always last note_off time)
 
+# output file header
+outputfile.write(FILE_HEADER.format(ppq=DEFAULT_PPQ, tempo=60000000/tempo))
 
-last_time = 0
-outputfile.write(FILE_HEADER.format(ppq=DEFAULT_PPQ, tempo=413793))
+# output piano track header
 outputfile.write(TRACK_HEADER.format(track=2, channel=0, track_info="",copyright="",title="piano"))
+
+# main note input loop
 while (1==1):
-    beat = 0
+    submeasure = 0
     nextline = inputfile.readline()
     if (nextline == ''): # End of File
         break
     readnotes = nextline.split(" ")
-    for note in readnotes:
-        if note[0] == '.': # measure subdivision spacer
-            beat += 1
-            fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, beat))
-        elif len(note) > 3:
-            # form i@frq!v_dr (i: instrument (p, b, d), frq: pitch 0..999,
-            # v: velocity 0..7, dr: duration in measure subdivisions)
-            instrument = note[0]
-            pitch = int(note[2:5])
-            velocity = int(note[6])*14
-            duration = int(note[8:10])
-            if instrument == 'p':
+    for next_note in readnotes:
+        if next_note[0] == '.': # measure subdivision spacer
+            submeasure += 1
+            fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
+        elif len(next_note) > 3:
+            # note format is: i@frq!v_dr
+            # i: instrument ('p', 'b', 'd')
+            # frq: pitch 000..999,
+            # v: velocity 0..7,
+            # dr: duration in measure subdivisions 00..99
+            instrument = next_note[0]
+            pitch = int(next_note[2:5])
+            velocity = int(next_note[6])*14+1 # pad with 1 to avoid accidental 0-velocity note_off messages
+            duration = int(next_note[8:10])
+            if instrument == 'p': # if it is a piano note
                 # print('{0}-> measure {1:d} note pitch {2} dur {3}'.format(note, measure_ct, int(pitch), int(duration)))
-                # outnotes[instrument].append(musicdata.Note(instrument, int(pitch), int(duration), int(measure_ct), int(beat), DEFAULT_PPQ))
-                print(getCSVNoteOn(measure_ct, beat, pitch, instrument, velocity, duration))
-                outputfile.write(getCSVNoteOn(measure_ct, beat, pitch, instrument, velocity, duration))
-                heapq.heappush(noteoffs, (getOffClockTime(measure_ct, beat, duration), getCSVNoteOff(measure_ct, beat, pitch, instrument, duration)))
-                last_time = int(DEFAULT_PPQ*(measure_ct*4+(beat+duration)/QUARTER_SUBDIVISION))
+                print(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+                outputfile.write(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+                heapq.heappush(noteoffs, (getOffClockTime(measure_ct, submeasure, duration), getCSVNoteOff(measure_ct, submeasure, pitch, instrument, duration)))
+                last_time = int(DEFAULT_PPQ*(measure_ct*4+(submeasure+duration)/quarter_sub))
 
     measure_ct += 1
 

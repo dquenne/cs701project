@@ -1,27 +1,27 @@
-"""
-Created on Sun Apr 16 18:03:29 2017
-
-@author: Uriel uUlloa Adan
-"""
+#pitchchanger.py
+#takes in training data for the musical RNN and changes the pitches.
 
 import sys
 
 def incrementPitch(increment):
+    
+    #read and write file
     if len(sys.argv) > 1:
     	inputfile = open(sys.argv[1], 'r')
     else:
         inputfile = open('input.txt', 'r')
         
-    outputfile = open('output-'+str(increment)+".txt", 'w')
+    outputfile = open('input-'+str(increment)+".txt", 'w')
         
-    for line in inputfile:
+    #begin reading through file
+    for line in inputfile: 
         lineArr = line.split() 
         for section in lineArr:
             pitchIndex = section.find("p@")
             if pitchIndex > -1:
                 pitch = int(section[pitchIndex+2:pitchIndex+5:])
                 pitch = pitch + increment
-                print(pitch)
+               # print(pitch)
                 outputfile.write(section[0:pitchIndex+2])
                 outputfile.write(str(pitch).zfill(3))
                 outputfile.write(section[pitchIndex+5:]+" ")

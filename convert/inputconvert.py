@@ -6,6 +6,7 @@
 
 import musicdata
 import sys
+import math
 
 DEFAULT_QUARTER_SUBDIV = 12
 # 2: 8th-note precision
@@ -30,11 +31,30 @@ def addNote(new_note):
         global max_measure
         max_measure = max(new_note.measure(), max_measure)
 
+arg_num = 1
+
+use_velocity = False
+use_measure_break = False
+inputcsv = None
+outputdata = None
+
+while (arg_num < len(sys.argv)):
+    if (sys.argv[arg_num] == "-v"):
+        use_velocity = True
+    elif (sys.argv[arg_num] == "-m"):
+    	use_measure_break = True
+    elif (inputcsv == None):
+        inputcsv = open(sys.argv[1], 'r')
+    elif (outputdata == None):
+        outputdata = open(sys.argv[2], 'w')
+    arg_num += 1
+
+
 # get input filename or use default
-if len(sys.argv) > 1:
-	inputcsv = open(sys.argv[1], 'r')
-else:
-    inputcsv = open('testcsv.csv', 'r')
+# if len(sys.argv) > 1:
+# 	inputcsv = open(sys.argv[1], 'r')
+# else:
+#     inputcsv = open('testcsv.csv', 'r')
 
 
 unfinishedpitches = {'p':set(), 'b':set(), 'd':set()} # this keeps track of which notes are unwritten
@@ -79,7 +99,7 @@ while (1==1):
         ppq = int(linedata[5])
 
     # Tempo message -> get num clock pulses per quarter note (ppq)
-    elif (nextline.find('Tempo') >= 0):
+    elif (nextline.find('Tempo, ') >= 0):
         linedata = nextline.split(", ")
         tempo = int(60000000 / int(linedata[3]))
 
@@ -95,10 +115,10 @@ inputcsv.close()
 print("writing output now")
 
 
-if len(sys.argv) > 2:
-	outputdata = open(sys.argv[2], 'w')
-else:
-    outputdata = open('output.txt', 'w')
+# if len(sys.argv) > 2:
+# 	outputdata = open(sys.argv[2], 'w')
+# else:
+#     outputdata = open('output.txt', 'w')
 
 notecount = 0
 outputdata.write('new song tempo {0}\n'.format(tempo))
@@ -108,17 +128,32 @@ outputdata.write('new song tempo {0}\n'.format(tempo))
 # encodes the note spacing
 # note that a '.' is not like a rest in sheet music, but rather a time marker;
 # notes do not have time value (this enables polyphony)
+
+def pauseFromCount(pausecount):
+    s = "_" * math.floor(pausecount / 4)
+    s += "." * (pausecount % 4) + " "
+    return s
+
+pausecount = 0
 for measure in range(max_measure+1):
     if measure in output:
         for spot in range(4*quarter_sub): # index by measure subdivision
             for note in output[measure]:
                 if note.timeInMeasure() == spot:
                     notecount += 1
-                    outputdata.write(note.getTrainingDataNote()+" ")
-            outputdata.write(". ")
+                    if (pausecount > 0):
+                        outputdata.write(pauseFromCount(pausecount))
+                        pausecount = 0
+                    outputdata.write(note.getTrainingDataNote(use_velocity)+" ")
+            # outputdata.write(". ")
+            pausecount += 1
     else: # empty measure
-        outputdata.write(". ")
-    outputdata.write("\n")
+        outputdata.write("_ _ _ _ ")
+    if use_measure_break:
+        if (pausecount > 0):
+            outputdata.write(pauseFromCount(pausecount))
+            pausecount = 0
+        outputdata.write("\n")
 
 outputdata.close()
 print("wrote", notecount, "notes")

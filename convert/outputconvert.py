@@ -2,8 +2,6 @@
 # converts RNN-produced file to CSV (comma-separated value) to be used with MIDICSV
 #
 # TODO:
-#   - use heap to keep track of note-off messages and insert in proper spot
-#   -
 
 import musicdata
 import sys
@@ -45,47 +43,65 @@ max_measure = 0
 
 # get MIDI clock time from measure and submeasure
 def getClockTime(measure, submeasure):
-    return int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub))
+	return int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub))
 
 # get MIDI clock time from measure and submeasure plus duration
 def getOffClockTime(measure, submeasure, duration):
-    return int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub))
+	return int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub))
 
 # get actual MIDI/CSV message for a note_on
 def getCSVNoteOn(measure, submeasure, pitch, instrument, velocity):
-    return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, {velocity}\n'.format(
-        track=DEFAULT_TRACKS[instrument],
-        time=int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub)),
-        channel=DEFAULT_CHANNELS[instrument],
-        pitch=pitch,
-        velocity=velocity
-    )
+	return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, {velocity}\n'.format(
+		track=DEFAULT_TRACKS[instrument],
+		time=int(DEFAULT_PPQ*(measure*4+submeasure/quarter_sub)),
+		channel=DEFAULT_CHANNELS[instrument],
+		pitch=pitch,
+		velocity=velocity
+	)
 
 # get actual MIDI/CSV message for a note_off
 def getCSVNoteOff(measure, submeasure, pitch, instrument, duration):
-    return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, 0\n'.format(
-        track=DEFAULT_TRACKS[instrument],
-        time=int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub)),
-        channel=DEFAULT_CHANNELS[instrument],
-        pitch=pitch
-    )
+	return '{track}, {time:d}, Note_on_c, {channel}, {pitch:d}, 0\n'.format(
+		track=DEFAULT_TRACKS[instrument],
+		time=int(DEFAULT_PPQ*(measure*4+(submeasure+duration)/quarter_sub)),
+		channel=DEFAULT_CHANNELS[instrument],
+		pitch=pitch
+	)
 
 # add all note_off messages with time value before 'time'
 def fillNoteEndings(outputfile, noteoffs, time):
-    while len(noteoffs) > 0 and noteoffs[0][0] <= time:
-        outputfile.write(heapq.heappop(noteoffs)[1])
+	while len(noteoffs) > 0 and noteoffs[0][0] <= time:
+		outputfile.write(heapq.heappop(noteoffs)[1])
 
-# get input filename or use default
-if len(sys.argv) > 1:
-	inputfile = open(sys.argv[1], 'r')
-else:
-    inputfile = open('output.txt', 'r')
+arg_num = 1
+use_velocity = False
+use_measure_break = False
+inputfile = None
+outputfile = None
 
-# get output filename or use default
-if len(sys.argv) > 2:
-	outputfile = open(sys.argv[2], 'w')
-else:
-    outputfile = open('finaloutput.csv', 'w')
+while (arg_num < len(sys.argv)):
+	if (sys.argv[arg_num] == "-v"):
+		use_velocity = True
+	elif (sys.argv[arg_num] == "-m"):
+		use_measure_break = True
+	elif (inputfile == None):
+	    inputfile = open(sys.argv[1], 'r')
+	elif (outputfile == None):
+	    outputfile = open(sys.argv[2], 'w')
+	arg_num += 1
+
+
+# # get input filename or use default
+# if len(sys.argv) > 1:
+# 	inputfile = open(sys.argv[1], 'r')
+# else:
+# 	inputfile = open('output.txt', 'r')
+#
+# # get output filename or use default
+# if len(sys.argv) > 2:
+# 	outputfile = open(sys.argv[2], 'w')
+# else:
+# 	outputfile = open('finaloutput.csv', 'w')
 
 
 # heap used to store note_off messages to be written (sorted by midi clock time)
@@ -104,35 +120,53 @@ outputfile.write(FILE_HEADER.format(ppq=DEFAULT_PPQ, tempo=60000000/tempo))
 # output piano track header
 outputfile.write(TRACK_HEADER.format(track=2, channel=0, track_info="",copyright="",title="piano"))
 
+def breakLength(s):
+	return (s.count('_')*4 + s.count('.'))
+
 # main note input loop
 while (1==1):
-    submeasure = 0
-    nextline = inputfile.readline()
-    if (nextline == ''): # End of File
-        break
-    readnotes = nextline.split(" ")
-    for next_note in readnotes:
-        if next_note[0] == '.': # measure subdivision spacer
-            submeasure += 1
-            fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
-        elif len(next_note) > 3:
-            # note format is: i@frq!v_dr
-            # i: instrument ('p', 'b', 'd')
-            # frq: pitch 000..999,
-            # v: velocity 0..7,
-            # dr: duration in measure subdivisions 00..99
-            instrument = next_note[0]
-            pitch = int(next_note[2:5])
-            velocity = int(next_note[6])*14+1 # pad with 1 to avoid accidental 0-velocity note_off messages
-            duration = int(next_note[8:10])
-            if instrument == 'p': # if it is a piano note
-                # print('{0}-> measure {1:d} note pitch {2} dur {3}'.format(note, measure_ct, int(pitch), int(duration)))
-                print(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
-                outputfile.write(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
-                heapq.heappush(noteoffs, (getOffClockTime(measure_ct, submeasure, duration), getCSVNoteOff(measure_ct, submeasure, pitch, instrument, duration)))
-                last_time = int(DEFAULT_PPQ*(measure_ct*4+(submeasure+duration)/quarter_sub))
+	submeasure = 0
+	nextline = inputfile.readline()
+	if (nextline == ''): # End of File
+		break
+	readnotes = nextline.split(" ")
+	fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
+	for next_note in readnotes:
+		if use_measure_break and submeasure >= DEFAULT_QUARTER_SUBDIV*4:
+			break
+		if len(next_note) > 0 and (next_note[0] == '.' or next_note[0] == '_'): # measure subdivision spacer
+			submeasure += breakLength(next_note)
+			fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
+		elif len(next_note) > 3:
+			# note format is: i@frq!v_dr
+			# i: instrument ('p', 'b', 'd')
+			# frq: pitch 000..999,
+			# v: velocity 0..7,
+			# dr: duration in measure subdivisions 00..99
+			try:
+				instrument = next_note[0]
+				if (True):
+					pitch = min(int(next_note[1:4]), 127)
+					if use_velocity:
+						velocity = min(int(next_note[5])*14+1, 128) # pad with 1 to avoid accidental 0-velocity note_off messages
+						if (len(next_note) >= 10):
+							duration = int(next_note[7:9])
+						else:
+							duration = 3
+					else:
+						velocity = 90
+						duration = int(next_note[5:7])
+					if instrument == 'p': # if it is a piano note
+						# print('{0}-> measure {1:d} note pitch {2} dur {3}'.format(note, measure_ct, int(pitch), int(duration)))
+						print(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+						outputfile.write(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+						heapq.heappush(noteoffs, (getOffClockTime(measure_ct, submeasure, duration), getCSVNoteOff(measure_ct, submeasure, pitch, instrument, duration)))
+						last_time = int(DEFAULT_PPQ*(measure_ct*4+(submeasure+duration)/quarter_sub))
+			except:
+				print("error:" + next_note)
+	measure_ct += 1
 
-    measure_ct += 1
+fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
 
 outputfile.write('2, {0:d}, End_track\n'.format(last_time))
 outputfile.write('0, 0, End_of_file')

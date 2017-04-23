@@ -40,19 +40,21 @@ class Note:
         return math.floor((self.time % self.clockspermeasure)/self.clocksperbeat*QUARTER_SUBDIVISION)
 
 
-    def getTrainingDataNote(self):
+    def getTrainingDataNote(self, use_velocity):
         # output = ("@" + str(self.timeInMeasure(num, denom, clocksperbeat)) + "[" +
         # '(%03d)' % self.pitch
         # + "]"
-        return '{inst}@{pitch:03d}!{power}_{duration:02d}'.format(
-            inst=self.instrument,
-            pitch=self.pitch,
-            power=math.floor(self.velocity/15),
-        # return '{inst}@{time:02d}[({pitch:03d}):{duration:02d}]'.format(
-        #     inst=self.instrument,
-        #     time=self.timeInMeasure(),
-        #     pitch=self.pitch,
-            duration=math.ceil(self.duration))
+        if (use_velocity):
+            return '{inst}{pitch:03d}!{power}-{duration:02d}'.format(
+                inst=self.instrument,
+                pitch=self.pitch,
+                power=math.floor(self.velocity/15),
+                duration=math.ceil(self.duration))
+        else:
+            return '{inst}{pitch:03d}-{duration:02d}'.format(
+                inst=self.instrument,
+                pitch=self.pitch,
+                duration=math.ceil(self.duration))
 
     def setEndTime(self, endtime):
         self.duration = (int(endtime) - self.time)/self.clocksperbeat*QUARTER_SUBDIVISION

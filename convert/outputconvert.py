@@ -7,6 +7,17 @@ import musicdata
 import sys
 import heapq
 
+usage = "usage:\n\
+  python outputconvert.py [options] in.txt out.csv\n\
+options:\n\
+  -m  write newline characters between measures\n\
+  -v  include velocity information in notes\n\
+  -i  read note pitches as intervals instead of pitches"
+
+if (len(sys.argv) < 3):
+	print(usage)
+	exit()
+
 DEFAULT_QUARTER_SUBDIV = 12
 # 2: 8th-note precision
 # 6: 8th-note and quarter-note triplet precision
@@ -76,6 +87,7 @@ def fillNoteEndings(outputfile, noteoffs, time):
 arg_num = 1
 use_velocity = False
 use_measure_break = False
+use_intervals = False
 inputfile = None
 outputfile = None
 
@@ -84,10 +96,12 @@ while (arg_num < len(sys.argv)):
 		use_velocity = True
 	elif (sys.argv[arg_num] == "-m"):
 		use_measure_break = True
+	elif (sys.argv[arg_num] == "-i"): # use note intervals instead of pitches
+		use_intervals = True
 	elif (inputfile == None):
-	    inputfile = open(sys.argv[1], 'r')
+		inputfile = open(sys.argv[1], 'r')
 	elif (outputfile == None):
-	    outputfile = open(sys.argv[2], 'w')
+		outputfile = open(sys.argv[2], 'w')
 	arg_num += 1
 
 
@@ -113,6 +127,7 @@ tempo = int(header.split(" ")[3])
 
 measure_ct = 0 # current measure
 last_time = 0 # time to be used for End_track message (always last note_off time)
+last_pitch = 60 # for use if note pitches are written as intervals
 
 # output file header
 outputfile.write(FILE_HEADER.format(ppq=DEFAULT_PPQ, tempo=60000000/tempo))
@@ -145,28 +160,34 @@ while (1==1):
 			# dr: duration in measure subdivisions 00..99
 			try:
 				instrument = next_note[0]
-				if (True):
+				if (use_intervals):
+					shift = int(next_note[2:next_note.find('-')])
+					if next_note[1] == '~':
+						shift *= -1
+					pitch = max(min(last_pitch + shift, 127), 0)
+					last_pitch = pitch  # remove this line for fun mess-ups
+				else:
 					pitch = min(int(next_note[1:4]), 127)
-					if use_velocity:
-						velocity = min(int(next_note[5])*14+1, 128) # pad with 1 to avoid accidental 0-velocity note_off messages
-						if (len(next_note) >= 10):
-							duration = int(next_note[7:9])
-						else:
-							duration = 3
+				if use_velocity:
+					velocity = min(int(next_note[5])*14+1, 128) # pad with 1 to avoid accidental 0-velocity note_off messages
+					if (len(next_note) >= 10):
+						duration = int(next_note[7:9])
 					else:
-						velocity = 90
-						duration = int(next_note[5:7])
-					if instrument == 'p': # if it is a piano note
-						# print('{0}-> measure {1:d} note pitch {2} dur {3}'.format(note, measure_ct, int(pitch), int(duration)))
-						print(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
-						outputfile.write(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
-						heapq.heappush(noteoffs, (getOffClockTime(measure_ct, submeasure, duration), getCSVNoteOff(measure_ct, submeasure, pitch, instrument, duration)))
-						last_time = int(DEFAULT_PPQ*(measure_ct*4+(submeasure+duration)/quarter_sub))
+						duration = 3
+				else:
+					velocity = 90
+					duration = int(next_note[5:7])
+				if instrument == 'p': # if it is a piano note
+					# print('{0}-> measure {1:d} note pitch {2} dur {3}'.format(note, measure_ct, int(pitch), int(duration)))
+					# print(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+					outputfile.write(getCSVNoteOn(measure_ct, submeasure, pitch, instrument, velocity))
+					heapq.heappush(noteoffs, (getOffClockTime(measure_ct, submeasure, duration), getCSVNoteOff(measure_ct, submeasure, pitch, instrument, duration)))
+					last_time = max(int(DEFAULT_PPQ*(measure_ct*4+(submeasure+duration)/quarter_sub)), last_time)
 			except:
 				print("error:" + next_note)
 	measure_ct += 1
 
-fillNoteEndings(outputfile, noteoffs, getClockTime(measure_ct, submeasure))
+fillNoteEndings(outputfile, noteoffs, last_time)
 
 outputfile.write('2, {0:d}, End_track\n'.format(last_time))
 outputfile.write('0, 0, End_of_file')

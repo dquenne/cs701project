@@ -32,6 +32,8 @@ class Note:
     #     self.clocksperbeat = ppq
     #     self.clockspermeasure = ppq*4
 
+    def getPitch(self):
+        return self.pitch
 
     def measure(self):
         return math.floor(self.time/self.clockspermeasure)
@@ -40,20 +42,26 @@ class Note:
         return math.floor((self.time % self.clockspermeasure)/self.clocksperbeat*QUARTER_SUBDIVISION)
 
 
-    def getTrainingDataNote(self, use_velocity):
-        # output = ("@" + str(self.timeInMeasure(num, denom, clocksperbeat)) + "[" +
-        # '(%03d)' % self.pitch
-        # + "]"
+    def getTrainingDataNote(self, use_velocity, last_pitch = -1):
+        if last_pitch >= 0:
+            pitch_output = self.pitch - last_pitch
+            if pitch_output < 0:
+                pitch_output = '~' + '{0:02d}'.format(pitch_output*-1)
+            else:
+                pitch_output = '+' + '{0:02d}'.format(pitch_output)
+        else:
+            pitch_output = '{0:03d}'.format(self.pitch)
+
         if (use_velocity):
-            return '{inst}{pitch:03d}!{power}-{duration:02d}'.format(
+            return '{inst}{pitch}!{power}-{duration:02d}'.format(
                 inst=self.instrument,
-                pitch=self.pitch,
+                pitch=pitch_output,
                 power=math.floor(self.velocity/15),
                 duration=math.ceil(self.duration))
         else:
-            return '{inst}{pitch:03d}-{duration:02d}'.format(
+            return '{inst}{pitch}-{duration:02d}'.format(
                 inst=self.instrument,
-                pitch=self.pitch,
+                pitch=pitch_output,
                 duration=math.ceil(self.duration))
 
     def setEndTime(self, endtime):

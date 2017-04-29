@@ -8,6 +8,18 @@ import musicdata
 import sys
 import math
 
+usage = "usage:\n\
+  python inputconvert.py [options] in.csv out.txt\n\
+options:\n\
+  -m  write newline characters between measures\n\
+  -v  include velocity information in notes\n\
+  -i  read note pitches as intervals instead of pitches"
+
+if (len(sys.argv) < 3):
+	print(usage)
+	exit()
+
+
 DEFAULT_QUARTER_SUBDIV = 12
 # 2: 8th-note precision
 # 6: 8th-note and quarter-note triplet precision
@@ -35,14 +47,17 @@ arg_num = 1
 
 use_velocity = False
 use_measure_break = False
+use_intervals = False
 inputcsv = None
 outputdata = None
 
 while (arg_num < len(sys.argv)):
-    if (sys.argv[arg_num] == "-v"):
+    if (sys.argv[arg_num] == "-v"): # include velocity information
         use_velocity = True
-    elif (sys.argv[arg_num] == "-m"):
+    elif (sys.argv[arg_num] == "-m"): # put line break at end of each measure
     	use_measure_break = True
+    elif (sys.argv[arg_num] == "-i"): # use note intervals instead of pitches
+        use_intervals = True
     elif (inputcsv == None):
         inputcsv = open(sys.argv[1], 'r')
     elif (outputdata == None):
@@ -59,7 +74,7 @@ while (arg_num < len(sys.argv)):
 
 unfinishedpitches = {'p':set(), 'b':set(), 'd':set()} # this keeps track of which notes are unwritten
 unfinishednotes = {'p':{}, 'b':{}, 'd':{}} # these are the actual unwritten notes
-channeltoinstrument = {0:'p',10:'d'} # keep track of which channel goes to which instrument
+channeltoinstrument = {} # keep track of which channel goes to which instrument
 
 # main input loop
 while (1==1):
@@ -68,9 +83,9 @@ while (1==1):
         break
 
     # either note on or note off message
-    if (nextline.find('Note_on_c') >= 0 and int(nextline.split(", ")[3]) in channeltoinstrument):
+    if ((nextline.find('Note_on_c') >= 0 or nextline.find('Note_off_c') >= 0) and int(nextline.split(", ")[3]) in channeltoinstrument):
         instr = channeltoinstrument[int(nextline.split(", ")[3])]
-        if (int(nextline.split(", ")[5]) > 0): # velocity > 0, i.e. note ON
+        if nextline.find('Note_on_c') >= 0 and int(nextline.split(", ")[5]) > 0: # velocity > 0, i.e. note ON
             # note pitch, start time, and velocity are stored, but duration is not known yet, so
             # add to 'unfinished notes' to be written once note_off message is found
             pitch = nextline.split(", ")[4]
@@ -92,6 +107,7 @@ while (1==1):
         midi_instrument = int(nextline.split(", ")[4])
         if midi_instrument <= 15: # piano and pitched percussion (e.g. vibraphone) categories
             channeltoinstrument[int(nextline.split(", ")[3])] = 'p'
+            print('channel {0:d} goes to {1}'.format(int(nextline.split(", ")[3]), 'p'))
 
     # Header message -> get num clock pulses per quarter note (ppq)
     elif (nextline.find('Header') >= 0):
@@ -134,21 +150,27 @@ def pauseFromCount(pausecount):
     s += "." * (pausecount % 4) + " "
     return s
 
+print(max_measure, len(output), 'measures')
 pausecount = 0
+last_pitch = 60
 for measure in range(max_measure+1):
     if measure in output:
         for spot in range(4*quarter_sub): # index by measure subdivision
             for note in output[measure]:
-                if note.timeInMeasure() == spot:
+                if note.timeInMeasure() == spot and note.instrument == "p" and note.channel != 9:
                     notecount += 1
                     if (pausecount > 0):
                         outputdata.write(pauseFromCount(pausecount))
                         pausecount = 0
-                    outputdata.write(note.getTrainingDataNote(use_velocity)+" ")
+                    if (use_intervals):
+                        outputdata.write(note.getTrainingDataNote(use_velocity, last_pitch)+" ")
+                        last_pitch = note.getPitch()
+                    else:
+                        outputdata.write(note.getTrainingDataNote(use_velocity)+" ")
             # outputdata.write(". ")
             pausecount += 1
     else: # empty measure
-        outputdata.write("_ _ _ _ ")
+        outputdata.write("____________")
     if use_measure_break:
         if (pausecount > 0):
             outputdata.write(pauseFromCount(pausecount))

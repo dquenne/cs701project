@@ -6,8 +6,8 @@ arg_num = 1
 use_velocity = False
 use_measure_break = False
 use_intervals = False
-csv_dir = None#"../blues-csv"
-out_dir = None#"../blues-txt"
+in_dir = None
+out_dir = None
 
 while (arg_num < len(sys.argv)):
 	if (sys.argv[arg_num] == "-v"): # include velocity information
@@ -16,9 +16,9 @@ while (arg_num < len(sys.argv)):
 		use_measure_break = True
 	elif (sys.argv[arg_num] == "-i"): # use note intervals instead of pitches
 		use_intervals = True
-		out_dir = "../blues-intervals"
-	elif (csv_dir == None):
-	    csv_dir = sys.argv[arg_num]
+		# out_dir = "../blues-intervals"
+	elif (in_dir == None):
+	    in_dir = sys.argv[arg_num]
 	elif (out_dir == None):
 	    out_dir = sys.argv[arg_num]
 	arg_num += 1
@@ -29,9 +29,10 @@ while (arg_num < len(sys.argv)):
 
 # csv_dir = raw_input("Test set name? ")
 # print(os.listdir(csv_dir))
-for csvName in os.scandir(csv_dir):
+for inName in os.scandir(in_dir):
+	print('Found txt file: %s' % out_dir+"/"+inName.name)
 	if use_intervals:
-		print('Found csv file: %s' % out_dir+"/"+csvName.name)
-		os.system("python inputconvert.py " + csv_dir+"/"+csvName.name + " " + out_dir + "/"+csvName.name[:-4]+".txt -i")
+
+		os.system("python outputconvert.py " + in_dir+"/"+inName.name + " " + out_dir + "/"+inName.name[:-4]+".csv -i")
 	else:
-		os.system("python inputconvert.py " + csv_dir+"/"+csvName.name + " " + out_dir + "/"+csvName.name[:-4]+".txt")
+		os.system("python outputconvert.py " + in_dir+"/"+inName.name + " " + out_dir + "/"+inName.name[:-4]+".csv")

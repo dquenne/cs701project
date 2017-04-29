@@ -110,7 +110,7 @@ outputdata.write('new song tempo {0}\n'.format(tempo))
 # notes do not have time value (this enables polyphony)
 
 dotcount = 0
-
+lastpitch = 60
 
 for measure in range(int(max_measure)+1): #had to convert to int here
     if measure in output:
@@ -121,7 +121,10 @@ for measure in range(int(max_measure)+1): #had to convert to int here
                     if (dotcount > 0):
                         outputdata.write("R" + str(dotcount) + " ")
                         dotcount = -1
-                    outputdata.write(note.getTrainingDataNote()+" ")
+                   # print("lastpitch: " + str(lastpitch))
+                   # print(note.getTrainingDataNote()[1:2] + str(int(note.getTrainingDataNote()[2:5]) - lastpitch) + note.getTrainingDataNote()[5:])
+                    outputdata.write(note.getTrainingDataNote()[1:2] + str(int(note.getTrainingDataNote()[2:5]) - lastpitch) + note.getTrainingDataNote()[5:]+" ")
+                    lastpitch = (int(note.getTrainingDataNote()[2:5]))
                     
             dotcount += 1
             # outputdata.write("+ ")

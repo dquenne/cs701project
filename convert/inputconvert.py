@@ -1,8 +1,8 @@
 # inputconvert.py
-# converts CSV (comma-separated value) file to new format for training RNN
+# converts .csv file to .txt file for RNN-training
+# .csv files according to MIDICSV http://www.fourmilab.ch/webtools/midicsv/
 #
-# TODO:
-#  - more efficient note storage?
+# by Dylan Quenneville, Vaasu Taneja, Uriel Ulloa for CS 701 spring 2017
 
 import musicdata
 import sys

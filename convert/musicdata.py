@@ -1,7 +1,10 @@
+# musicdata.py
+# Note class for use with inputconvert.py
+#
+# by Dylan Quenneville, Vaasu Taneja, Uriel Ulloa for CS 701 spring 2017
+
+
 import math
-
-
-# def pitchToNoteName(pitch):
 
 QUARTER_SUBDIVISION = 12
 

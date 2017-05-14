@@ -1,6 +1,23 @@
+# inputconvert-batch.py
+# convert entire folder of .csv files to .txt files for RNN-training
+# .csv files according to MIDICSV http://www.fourmilab.ch/webtools/midicsv/
+#
+# by Dylan Quenneville, Vaasu Taneja, Uriel Ulloa for CS 701 spring 2017
+
 import os
 import sys
 import subprocess
+
+usage = "usage:\n\
+  python inputconvert-batch.py [options] in-directory out-directory\n\
+options:\n\
+  -m  write newline characters between measures\n\
+  -v  include velocity information in notes\n\
+  -i  read note pitches as intervals instead of pitches"
+
+if (len(sys.argv) < 3):
+	print(usage)
+	exit()
 
 arg_num = 1
 use_velocity = False
@@ -16,7 +33,6 @@ while (arg_num < len(sys.argv)):
 		use_measure_break = True
 	elif (sys.argv[arg_num] == "-i"): # use note intervals instead of pitches
 		use_intervals = True
-		out_dir = "../blues-intervals"
 	elif (csv_dir == None):
 	    csv_dir = sys.argv[arg_num]
 	elif (out_dir == None):
